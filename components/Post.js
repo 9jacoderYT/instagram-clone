@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Moment from "react-moment";
 import { db } from "../firebase";
 import {
@@ -8,7 +8,6 @@ import {
   BookmarkIcon,
   EmojiHappyIcon,
 } from "@heroicons/react/outline";
-import { useSession } from "next-auth/react";
 import { HeartIcon as HeartIconFilled } from "@heroicons/react/solid";
 import {
   addDoc,
@@ -21,15 +20,14 @@ import {
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
+import { useRecoilState } from "recoil";
+import { userState } from "../atom/userAtom";
 export default function Post({ img, userImg, caption, username, id }) {
-  const { data: session } = useSession();
   const [comment, setComment] = useState("");
-
+  const [comments, setComments] = useState([]);
   const [likes, setLikes] = useState([]);
   const [hasLiked, setHasLiked] = useState(false);
-
-  // DISPLAY COMMENTS
-  const [comments, setComments] = useState([]);
+  const [currentUser] = useRecoilState(userState);
   useEffect(() => {
     const unsubscribe = onSnapshot(
       query(
@@ -41,9 +39,6 @@ export default function Post({ img, userImg, caption, username, id }) {
       }
     );
   }, [db, id]);
-
-  // LIKE FUNCTIONALITY
-
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, "posts", id, "likes"),
@@ -51,30 +46,25 @@ export default function Post({ img, userImg, caption, username, id }) {
     );
   }, [db]);
   useEffect(() => {
-    setHasLiked(
-      likes.findIndex((like) => like.id === session?.user.uid) !== -1
-    );
+    setHasLiked(likes.findIndex((like) => like.id === currentUser?.uid) !== -1);
   }, [likes]);
-
   async function likePost() {
     if (hasLiked) {
-      await deleteDoc(doc(db, "posts", id, "likes", session.user.uid));
+      await deleteDoc(doc(db, "posts", id, "likes", currentUser?.uid));
     } else {
-      await setDoc(doc(db, "posts", id, "likes", session.user.uid), {
-        username: session.user.username,
+      await setDoc(doc(db, "posts", id, "likes", currentUser?.uid), {
+        username: currentUser?.username,
       });
     }
   }
-
-  // SEND COMMENT
   async function sendComment(event) {
     event.preventDefault();
     const commentToSend = comment;
     setComment("");
     await addDoc(collection(db, "posts", id, "comments"), {
       comment: commentToSend,
-      username: session.user.username,
-      userImage: session.user.image,
+      username: currentUser?.username,
+      userImage: currentUser?.userImg,
       timestamp: serverTimestamp(),
     });
   }
@@ -98,7 +88,7 @@ export default function Post({ img, userImg, caption, username, id }) {
 
       {/* Post Buttons  */}
 
-      {session && (
+      {currentUser && (
         <div className="flex justify-between px-4 pt-4">
           <div className="flex space-x-4">
             {hasLiked ? (
@@ -125,11 +115,13 @@ export default function Post({ img, userImg, caption, username, id }) {
         <span className="font-bold mr-2">{username}</span>
         {caption}
       </p>
-
       {comments.length > 0 && (
         <div className="mx-10 max-h-24 overflow-y-scroll scrollbar-none">
           {comments.map((comment) => (
-            <div className="flex items-center space-x-2 mb-2">
+            <div
+              key={comment.data().id}
+              className="flex items-center space-x-2 mb-2"
+            >
               <img
                 className="h-7  rounded-full object-cover"
                 src={comment.data().userImage}
@@ -144,7 +136,7 @@ export default function Post({ img, userImg, caption, username, id }) {
       )}
 
       {/* Post input box */}
-      {session && (
+      {currentUser && (
         <form className="flex items-center p-4">
           <EmojiHappyIcon className="h-7" />
           <input
