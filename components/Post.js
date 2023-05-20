@@ -20,14 +20,13 @@ import {
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
-import { useRecoilState } from "recoil";
-import { userState } from "../atom/userAtom";
+import { useSession } from "next-auth/react";
 export default function Post({ img, userImg, caption, username, id }) {
+  const { data: session } = useSession();
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState([]);
   const [likes, setLikes] = useState([]);
   const [hasLiked, setHasLiked] = useState(false);
-  const [currentUser] = useRecoilState(userState);
   useEffect(() => {
     const unsubscribe = onSnapshot(
       query(
@@ -46,14 +45,16 @@ export default function Post({ img, userImg, caption, username, id }) {
     );
   }, [db]);
   useEffect(() => {
-    setHasLiked(likes.findIndex((like) => like.id === currentUser?.uid) !== -1);
+    setHasLiked(
+      likes.findIndex((like) => like.id === session?.user.uid) !== -1
+    );
   }, [likes]);
   async function likePost() {
     if (hasLiked) {
-      await deleteDoc(doc(db, "posts", id, "likes", currentUser?.uid));
+      await deleteDoc(doc(db, "posts", id, "likes", session.user.uid));
     } else {
-      await setDoc(doc(db, "posts", id, "likes", currentUser?.uid), {
-        username: currentUser?.username,
+      await setDoc(doc(db, "posts", id, "likes", session.user.uid), {
+        username: session.user.username,
       });
     }
   }
@@ -63,15 +64,14 @@ export default function Post({ img, userImg, caption, username, id }) {
     setComment("");
     await addDoc(collection(db, "posts", id, "comments"), {
       comment: commentToSend,
-      username: currentUser?.username,
-      userImage: currentUser?.userImg,
+      username: session.user.username,
+      userImage: session.user.image,
       timestamp: serverTimestamp(),
     });
   }
   return (
     <div className="bg-white my-7 border rounded-md">
       {/* Post Header */}
-
       <div className="flex items-center p-5">
         <img
           className="h-12 rounded-full object-cover border p-1 mr-3"
@@ -81,14 +81,10 @@ export default function Post({ img, userImg, caption, username, id }) {
         <p className="font-bold flex-1">{username}</p>
         <DotsHorizontalIcon className="h-5" />
       </div>
-
       {/* Post Image */}
-
       <img className="object-cover w-full" src={img} alt="" />
-
       {/* Post Buttons  */}
-
-      {currentUser && (
+      {session && (
         <div className="flex justify-between px-4 pt-4">
           <div className="flex space-x-4">
             {hasLiked ? (
@@ -99,19 +95,13 @@ export default function Post({ img, userImg, caption, username, id }) {
             ) : (
               <HeartIcon onClick={likePost} className="btn" />
             )}
-
             <ChatIcon className="btn" />
           </div>
           <BookmarkIcon className="btn" />
         </div>
       )}
-
       {/* Post comments */}
-
       <p className="p-5 truncate">
-        {likes.length > 0 && (
-          <p className="font-bold mb-1">{likes.length} likes</p>
-        )}
         <span className="font-bold mr-2">{username}</span>
         {caption}
       </p>
@@ -134,9 +124,8 @@ export default function Post({ img, userImg, caption, username, id }) {
           ))}
         </div>
       )}
-
       {/* Post input box */}
-      {currentUser && (
+      {session && (
         <form className="flex items-center p-4">
           <EmojiHappyIcon className="h-7" />
           <input
