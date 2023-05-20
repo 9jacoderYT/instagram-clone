@@ -1,5 +1,5 @@
 import Posts from "./Posts";
-import MiniProfile from "./MiniProfile";
+import MiniProfile from "./MIniProfile";
 import Stories from "./Stories";
 import Suggestions from "./Suggestions";
 import { useSession } from "next-auth/react";
